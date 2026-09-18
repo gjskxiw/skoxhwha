@@ -6,6 +6,8 @@ dist/
 src-tauri/target/
 # tauri-build 生成的 capability schema，每次构建自动重建
 src-tauri/gen/
+# 待上传的 exe 暂存目录：二进制通过 GitHub Release 附件分发，不进版本库
+release/
 
 # ---- 运行期数据（便携模式写在 exe 同目录）----
 data/
