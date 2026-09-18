@@ -1,0 +1,38 @@
+# ---- 依赖 ----
+node_modules/
+
+# ---- 构建产物 ----
+dist/
+src-tauri/target/
+# tauri-build 生成的 capability schema，每次构建自动重建
+src-tauri/gen/
+
+# ---- 运行期数据（便携模式写在 exe 同目录）----
+data/
+*.log
+
+# ---- 本地编辑器 / 系统 ----
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# ---- 环境变量与凭据 ----
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+
+# ---- 本仓库根的临时/散落文件 ----
+*.pdb
+
+# ---- 本地工作产物（不属于项目源码，不要提交）----
+# 源码审计报告、笔记、待办等放在这里，仓库里不追踪
+audit/
+notes/
+*.local.md

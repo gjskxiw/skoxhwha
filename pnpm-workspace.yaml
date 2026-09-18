@@ -1,0 +1,6 @@
+allowBuilds:
+  vue-demi: true
+  esbuild: true
+  "@tailwindcss/oxide": true
+minimumReleaseAgeExclude:
+  - '@lucide/vue@1.46.0'
