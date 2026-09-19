@@ -52,9 +52,22 @@ export async function commitConfig(mutate: (draft: Config) => void) {
   await replaceConfig(draft);
 }
 
-/** 依赖状态只由工具与运行环境决定；主题、分组名等改动保存后无需重探 */
+/**
+ * 依赖状态只由 check_tool 真正读到的输入决定，据此决定保存后要不要重扫。
+ *
+ * 工具侧只要身份（id 变了必须重扫，否则新工具在 statuses 里没有条目）、类型、目标路径、
+ * 启动参数（引号是否配对、终端类的 %）和环境绑定；环境侧要 kind / path，外加 name ——
+ * 失败文案里会带「环境「X」」。工具名、分组、图标、描述改了都不影响结论，不必重扫：
+ * 100 个工具时一轮全量重扫约 200ms，只为改个名字是白付的。
+ *
+ * 这份字段清单与后端 launcher::check_tool 的输入是一对契约，那边多读一个字段，
+ * 这里就得跟着加（launcher.rs 的注释里也留了提醒）。
+ */
 function statusKey(c: Config): string {
-  return JSON.stringify([c.tools, c.envs]);
+  return JSON.stringify([
+    c.tools.map((t) => [t.id, t.type, t.target, t.args, t.envId]),
+    c.envs.map((e) => [e.id, e.kind, e.path, e.name]),
+  ]);
 }
 
 /** 用给定配置整体替换后端与本地（导入用）；成功才写回 store */

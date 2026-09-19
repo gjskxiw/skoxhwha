@@ -321,6 +321,10 @@ fn command_arguments(tool: &Tool) -> Vec<String> {
 ///
 /// Java / Python 类工具必须绑定运行环境：未绑定或类型不符直接拒绝，
 /// 不再回退系统 PATH。
+///
+/// 注意：这里读到的输入字段（工具 id/类型/目标/参数/环境绑定，环境的 kind/path/name）
+/// 与前端 `store.ts` 的 `statusKey` 是一对契约 —— 新增一个会影响结论的输入，
+/// 必须同步加进 statusKey，否则改了那一类字段不会触发重扫，卡片会留着旧结论。
 pub fn check_tool(tool: &Tool, config: &Config) -> Result<(), String> {
     // 工具类型与目标文件的扩展名必须匹配。表单里也会校验一次，这里兜住手改 / 导入的
     // 配置，让卡片直接标红说明原因，而不是等到点启动才失败。
