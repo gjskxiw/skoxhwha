@@ -640,6 +640,22 @@ mod tests {
         }
     }
 
+    /// 前端 `src/lib/env-error.ts` 靠这些前缀把原始错误归成人话。
+    /// 改措辞必须同步改那边，否则界面上只会退化成「这个目录没能通过环境校验」。
+    #[test]
+    fn validate_env_error_prefixes_are_stable() {
+        let env = |kind: EnvKind, path: &str| Env {
+            id: String::new(),
+            kind,
+            name: String::new(),
+            path: path.into(),
+        };
+        let missing = validate_env(&env(EnvKind::Python, "C:\\secaxis-self-test\\nope")).unwrap_err();
+        assert!(missing.starts_with("可执行文件不存在"), "原始错误：{missing}");
+        let unknown = validate_env(&env(EnvKind::Unknown, "C:\\")).unwrap_err();
+        assert!(unknown.starts_with("未知的环境类型"), "原始错误：{unknown}");
+    }
+
     fn check(t: &Tool, cfg: &Config) -> Result<(), String> {
         check_tool(t, cfg)
     }

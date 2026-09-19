@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import { FolderOpen } from "@lucide/vue";
+import { FolderOpen, LoaderCircle, Plus } from "@lucide/vue";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { useAddEnv } from "@/lib/env-add";
 import { commitConfig, store, uid } from "@/lib/store";
 import {
   TOOL_TYPE_LABEL,
@@ -80,13 +81,31 @@ const envKind = computed<EnvKind | null>(() => envKindForType(form.type));
 const envOptions = computed(() =>
   envKind.value ? store.config.envs.filter((e) => e.kind === envKind.value) : [],
 );
-/** 该类型还没有任何可用的运行环境：需要先去顶栏配置 */
+/** 该类型还没有任何可用的运行环境：需要就地补一个 */
 const envMissing = computed(() => !!envKind.value && envOptions.value.length === 0);
 /** Java / Python 类工具必须绑定环境，未选中时表单标红并阻止保存 */
 const envInvalid = computed(() => !!envKind.value && !form.envId);
 const envPlaceholder = computed(() =>
-  envMissing.value ? "请配置环境变量" : "请选择运行环境",
+  envMissing.value ? "还没有可用的环境" : "请选择运行环境",
 );
+
+const {
+  adding: envAdding,
+  error: envAddError,
+  rawError: envAddRaw,
+  addEnv,
+} = useAddEnv();
+
+/**
+ * 一套环境都没有时就地补一个 —— 本弹窗是模态的，顶栏那两个按钮被遮罩挡住点不到，
+ * 原先的文案让用户「去点顶栏」其实是条死路，只能取消并丢掉已填内容。
+ * 加成功就把新环境选上，用户不用再去下拉里找一遍。
+ */
+async function addEnvInForm() {
+  if (!envKind.value) return;
+  const env = await addEnv(envKind.value);
+  if (env && !form.envId) form.envId = env.id;
+}
 
 // 绑定环境（__none__ = 未选中；没有任何环境时 SelectValue 显示占位文案）
 const envSelect = computed<string>({
@@ -110,6 +129,8 @@ watch(
       const env = store.config.envs.find((e) => e.id === form.envId);
       if (!env || env.kind !== envKind.value) form.envId = null;
     }
+    // 换到另一类别，上一条探测失败的原因就不相关了
+    envAddError.value = "";
   },
 );
 
@@ -179,9 +200,7 @@ function validate(): string | null {
   }
   // Java / Python 类工具必须绑定运行环境（后端不再回退系统 PATH）
   if (envInvalid.value) {
-    return envMissing.value
-      ? "请先点击顶栏的 Java / Python 按钮配置运行环境"
-      : "请选择运行环境";
+    return envMissing.value ? "请先用下面的「添加环境」配好运行环境" : "请选择运行环境";
   }
   return null;
 }
@@ -316,6 +335,22 @@ async function save() {
               </SelectItem>
             </SelectContent>
           </Select>
+          <!-- 本弹窗是模态的，顶栏的环境按钮被遮罩挡住点不到，所以这里就地给一个入口 -->
+          <template v-if="envMissing">
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="envAdding"
+              @click="addEnvInForm"
+            >
+              <LoaderCircle v-if="envAdding" class="animate-spin" />
+              <Plus v-else />
+              {{ envAdding ? "识别中…" : envKind === "java" ? "添加 JDK 环境" : "添加 Python 环境" }}
+            </Button>
+            <p v-if="envAddError" role="alert" class="break-words text-xs text-destructive" :title="envAddRaw">
+              {{ envAddError }}
+            </p>
+          </template>
         </div>
 
         <div class="space-y-1.5">

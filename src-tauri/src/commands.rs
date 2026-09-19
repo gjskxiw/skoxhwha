@@ -201,9 +201,17 @@ pub async fn open_tool_dir(
 /// 保存前探测：把「目录」当成环境跑一次 `java -version` / `python --version`。
 /// 不要求环境已经存在于配置里，这样「添加」可以直接选目录、由版本信息自动命名。
 /// 环境入库前必经此步，所以列表里不再需要单独的「验证」入口。
+///
+/// 失败原因先落 app.log 再抛回前端：界面只展示归类后的人话，
+/// 原始输出（含版本串、退出码、OS 报错）留给排查时看。
 #[tauri::command]
-pub async fn probe_env(kind: EnvKind, path: String) -> Result<EnvProbe, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+pub async fn probe_env(
+    state: State<'_, AppState>,
+    kind: EnvKind,
+    path: String,
+) -> Result<EnvProbe, String> {
+    let data_dir = state.data_dir.clone();
+    let probed = tauri::async_runtime::spawn_blocking(move || {
         let env = Env {
             id: String::new(),
             kind,
@@ -217,7 +225,9 @@ pub async fn probe_env(kind: EnvKind, path: String) -> Result<EnvProbe, String> 
         Ok(EnvProbe { name })
     })
     .await
-    .map_err(|e| format!("探测失败: {e}"))?
+    .map_err(|e| format!("探测失败: {e}"))
+    .flatten();
+    log_err(&data_dir, probed)
 }
 
 #[tauri::command]
