@@ -13,6 +13,8 @@ import { Separator } from "@/components/ui/separator";
 import { confirmAction } from "@/lib/confirm";
 import { notify } from "@/lib/notice";
 import { commitConfig, uid, store } from "@/lib/store";
+import { GROUP_COLORS, GROUP_COLOR_KEYS } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const counts = computed<Record<string, number>>(() => {
   const c: Record<string, number> = { all: store.config.tools.length, none: 0 };
@@ -23,11 +25,31 @@ const counts = computed<Record<string, number>>(() => {
   return c;
 });
 
+/**
+ * 侧栏一行。选中态同时用三种线索表达 —— 左侧色条、底色、字重 ——
+ * 因为深色主题下 hover 与选中只差一档底色明度，扫视时容易分不清当前在看哪个组。
+ */
+function rowClass(active: boolean) {
+  return cn(
+    "relative flex w-full items-center gap-2 rounded-md py-1.5 pr-2 pl-4 text-sm transition-colors",
+    "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50",
+    active
+      ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+      : "hover:bg-sidebar-accent/60",
+  );
+}
+
+/** 色标槽位固定占位，保证分组名左右对齐；未上色时留空 */
+function dotClass(color: string) {
+  return GROUP_COLORS[color] ?? "bg-transparent";
+}
+
 // 新建 / 重命名分组
 const groupDialogOpen = ref(false);
 const groupDialogMode = ref<"new" | "rename">("new");
 const renameTargetId = ref<string | null>(null);
 const groupNameInput = ref("");
+const groupColorInput = ref("");
 /** 保存中：防止连点「确定」把同一分组提交两次 */
 const saving = ref(false);
 /** 上一次提交被拒的原因，显示在输入框下方 */
@@ -38,10 +60,22 @@ watch(groupNameInput, () => {
   groupError.value = "";
 });
 
+/** 色板按钮：选中的一圈 ring，未选中的略淡 */
+function swatchClass(selected: boolean, colorClass: string) {
+  return cn(
+    "size-5 shrink-0 rounded-full border transition",
+    colorClass || "border-dashed border-muted-foreground/60 bg-transparent",
+    selected
+      ? "ring-ring/70 ring-2 ring-offset-2 ring-offset-background"
+      : "opacity-75 hover:opacity-100",
+  );
+}
+
 function openNewGroup() {
   groupDialogMode.value = "new";
   renameTargetId.value = null;
   groupNameInput.value = "";
+  groupColorInput.value = "";
   groupError.value = "";
   groupDialogOpen.value = true;
 }
@@ -54,6 +88,7 @@ function openRenameGroup(id: string) {
   groupDialogMode.value = "rename";
   renameTargetId.value = id;
   groupNameInput.value = g.name;
+  groupColorInput.value = GROUP_COLORS[g.color] ? g.color : "";
   groupError.value = "";
   groupDialogOpen.value = true;
 }
@@ -69,14 +104,18 @@ async function confirmGroup() {
   }
   const isNewGroup = groupDialogMode.value === "new";
   const targetId = renameTargetId.value;
+  const color = groupColorInput.value;
   saving.value = true;
   try {
     await commitConfig((d) => {
       if (isNewGroup) {
-        d.groups.push({ id: uid("g"), name });
+        d.groups.push({ id: uid("g"), name, color });
       } else if (targetId) {
         const g = d.groups.find((x) => x.id === targetId);
-        if (g) g.name = name;
+        if (g) {
+          g.name = name;
+          g.color = color;
+        }
       }
     });
   } catch {
@@ -114,23 +153,41 @@ async function deleteGroup(id: string) {
 </script>
 
 <template>
-  <aside class="flex w-52 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground">
+  <aside class="flex w-52 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
     <nav class="flex-1 space-y-[3px] overflow-y-auto px-2 pt-3 pb-2">
       <button
-        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors"
-        :class="store.activeGroupId === 'all' ? 'bg-sidebar-active font-medium text-sidebar-active-foreground' : 'hover:bg-sidebar-active/60'"
+        :class="rowClass(store.activeGroupId === 'all')"
+        :aria-current="store.activeGroupId === 'all' ? 'true' : undefined"
         @click="store.activeGroupId = 'all'"
       >
+        <span
+          v-if="store.activeGroupId === 'all'"
+          aria-hidden="true"
+          class="absolute bottom-1.5 left-0 w-[3px] rounded-full bg-primary top-1.5"
+        />
+        <span aria-hidden="true" class="size-2 shrink-0" />
         全部
-        <span class="ml-auto text-xs text-muted-foreground">{{ counts.all }}</span>
+        <span
+          v-if="counts.all > 0"
+          class="ml-auto rounded-full border border-sidebar-border px-1.5 text-xs tabular-nums text-muted-foreground"
+        >{{ counts.all }}</span>
       </button>
       <button
-        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors"
-        :class="store.activeGroupId === 'none' ? 'bg-sidebar-active font-medium text-sidebar-active-foreground' : 'hover:bg-sidebar-active/60'"
+        :class="rowClass(store.activeGroupId === 'none')"
+        :aria-current="store.activeGroupId === 'none' ? 'true' : undefined"
         @click="store.activeGroupId = 'none'"
       >
+        <span
+          v-if="store.activeGroupId === 'none'"
+          aria-hidden="true"
+          class="absolute bottom-1.5 left-0 w-[3px] rounded-full bg-primary top-1.5"
+        />
+        <span aria-hidden="true" class="size-2 shrink-0" />
         未分组
-        <span class="ml-auto text-xs text-muted-foreground">{{ counts.none ?? 0 }}</span>
+        <span
+          v-if="counts.none > 0"
+          class="ml-auto rounded-full border border-sidebar-border px-1.5 text-xs tabular-nums text-muted-foreground"
+        >{{ counts.none }}</span>
       </button>
 
       <template v-if="store.config.groups.length > 0">
@@ -138,12 +195,25 @@ async function deleteGroup(id: string) {
         <ContextMenu v-for="g in store.config.groups" :key="g.id">
           <ContextMenuTrigger as-child>
             <button
-              class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors"
-              :class="store.activeGroupId === g.id ? 'bg-sidebar-active font-medium text-sidebar-active-foreground' : 'hover:bg-sidebar-active/60'"
+              :class="rowClass(store.activeGroupId === g.id)"
+              :aria-current="store.activeGroupId === g.id ? 'true' : undefined"
               @click="store.activeGroupId = g.id"
             >
+              <span
+                v-if="store.activeGroupId === g.id"
+                aria-hidden="true"
+                class="absolute bottom-1.5 left-0 w-[3px] rounded-full bg-primary top-1.5"
+              />
+              <span
+                aria-hidden="true"
+                class="size-2 shrink-0 rounded-full"
+                :class="dotClass(g.color)"
+              />
               <span class="truncate">{{ g.name }}</span>
-              <span class="ml-auto text-xs text-muted-foreground">{{ counts[g.id] ?? 0 }}</span>
+              <span
+                v-if="counts[g.id]"
+                class="ml-auto rounded-full border border-sidebar-border px-1.5 text-xs tabular-nums text-muted-foreground"
+              >{{ counts[g.id] }}</span>
             </button>
           </ContextMenuTrigger>
           <ContextMenuContent>
@@ -162,6 +232,29 @@ async function deleteGroup(id: string) {
         </DialogHeader>
         <Input v-model="groupNameInput" @keydown.enter="confirmGroup" />
         <p v-if="groupError" role="alert" class="text-xs text-destructive">{{ groupError }}</p>
+        <div class="space-y-1.5">
+          <span class="text-xs text-muted-foreground">色标</span>
+          <div class="flex items-center gap-1.5">
+            <button
+              type="button"
+              title="不上色"
+              aria-label="不上色"
+              :aria-pressed="groupColorInput === ''"
+              :class="swatchClass(groupColorInput === '', '')"
+              @click="groupColorInput = ''"
+            />
+            <button
+              v-for="key in GROUP_COLOR_KEYS"
+              :key="key"
+              type="button"
+              :title="key"
+              :aria-label="`色标 ${key}`"
+              :aria-pressed="groupColorInput === key"
+              :class="swatchClass(groupColorInput === key, GROUP_COLORS[key])"
+              @click="groupColorInput = key"
+            />
+          </div>
+        </div>
         <DialogFooter>
           <Button variant="outline" @click="groupDialogOpen = false">取消</Button>
           <Button :disabled="saving" @click="confirmGroup">确定</Button>

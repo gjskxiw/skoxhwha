@@ -637,7 +637,6 @@ mod tests {
             group_id: None,
             icon: None,
             description: String::new(),
-            sort: 0,
         }
     }
 

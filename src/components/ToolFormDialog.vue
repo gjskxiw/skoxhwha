@@ -40,7 +40,6 @@ const form = reactive<Tool>({
   groupId: null,
   icon: null,
   description: "",
-  sort: 0,
 });
 
 function emptyTool(): Tool {
@@ -54,7 +53,6 @@ function emptyTool(): Tool {
     groupId: null,
     icon: null,
     description: "",
-    sort: 0,
   };
 }
 
@@ -225,7 +223,7 @@ async function save() {
 
     await commitConfig((draft) => {
       if (isNew.value) {
-        snapshot.sort = Math.max(-1, ...draft.tools.map((t) => t.sort)) + 1;
+        // 追加到末尾即可：卡片顺序就是数组顺序，没有单独的排序字段
         draft.tools.push(snapshot);
       } else {
         const idx = draft.tools.findIndex((t) => t.id === snapshot.id);

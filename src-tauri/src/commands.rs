@@ -33,19 +33,16 @@ pub struct CheckResult {
 pub struct EnvProbe {
     /// 建议的环境名（由版本信息推导，如 "JDK 17.0.9" / "Python 3.12.4"）
     pub name: String,
-    /// 原始版本输出，供界面展示细节
-    pub detail: String,
 }
 
-/// 托盘菜单只依赖分组与工具的 id/名称/分组归属，据此生成指纹避免无谓重建
+/// 托盘菜单只依赖分组与工具的 id/名称/分组归属，据此生成指纹避免无谓重建。
+/// 工具按数组顺序（即插入序）遍历：没有排序字段，顺序变化只会来自增删。
 fn tray_signature(cfg: &Config) -> String {
     let mut sig = String::new();
     for g in &cfg.groups {
         sig.push_str(&format!("g:{}|{};", g.id, g.name));
     }
-    let mut tools: Vec<_> = cfg.tools.iter().collect();
-    tools.sort_by_key(|t| t.sort);
-    for t in tools {
+    for t in &cfg.tools {
         sig.push_str(&format!(
             "t:{}|{}|{};",
             t.id,
@@ -216,7 +213,8 @@ pub async fn probe_env(kind: EnvKind, path: String) -> Result<EnvProbe, String> 
         let detail = launcher::validate_env(&env)?;
         let name = launcher::suggest_env_name(kind, &detail)
             .ok_or_else(|| format!("无法从版本信息中识别环境名称：{detail}"))?;
-        Ok(EnvProbe { name, detail })
+        // 原始版本输出只用于推导名称与失败消息，不再往前端传一份
+        Ok(EnvProbe { name })
     })
     .await
     .map_err(|e| format!("探测失败: {e}"))?

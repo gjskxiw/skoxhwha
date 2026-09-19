@@ -28,8 +28,14 @@ export interface Env {
 export interface Group {
   id: string;
   name: string;
+  /** 侧栏色标的键，"" 表示不上色；可选值见 GROUP_COLORS */
+  color: string;
 }
 
+/**
+ * 工具卡片。展示顺序 = `config.tools` 的数组顺序（新建时追加到末尾）：
+ * 界面上不提供拖拽或上移下移，所以也没有单独的排序字段。
+ */
 export interface Tool {
   id: string;
   name: string;
@@ -40,7 +46,6 @@ export interface Tool {
   groupId: string | null;
   icon: string | null;
   description: string;
-  sort: number;
 }
 
 export interface Config {
@@ -61,8 +66,6 @@ export interface CheckResult {
 export interface EnvProbe {
   /** 建议的环境名（由版本信息推导，如 "JDK 17.0.9" / "Python 3.12.4"） */
   name: string;
-  /** 原始版本输出 */
-  detail: string;
 }
 
 /** import_config 的返回：收敛引用后可能带修正说明 */
@@ -101,6 +104,22 @@ export const TOOL_TYPE_BADGE: Record<ToolType, string> = {
   web: "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/50 dark:text-cyan-300",
   unknown: "border-border bg-muted text-muted-foreground",
 };
+
+/**
+ * 分组色标：沿用工具类型徽章那套六色，深浅主题各一档。
+ * 存的是键名（如 "blue"）而不是 class 字符串，Rust 侧 `Group.color` 同样只存键；
+ * 导入的配置里出现未知键时这里查不到，就不画色点，不影响任何启动逻辑。
+ */
+export const GROUP_COLORS: Record<string, string> = {
+  blue: "bg-blue-500 dark:bg-blue-400",
+  amber: "bg-amber-500 dark:bg-amber-400",
+  emerald: "bg-emerald-500 dark:bg-emerald-400",
+  fuchsia: "bg-fuchsia-500 dark:bg-fuchsia-400",
+  rose: "bg-rose-500 dark:bg-rose-400",
+  cyan: "bg-cyan-500 dark:bg-cyan-400",
+};
+
+export const GROUP_COLOR_KEYS = Object.keys(GROUP_COLORS);
 
 export function envKindForType(type: ToolType): EnvKind | null {
   switch (type) {

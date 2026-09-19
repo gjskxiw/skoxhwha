@@ -17,7 +17,7 @@ pub fn rebuild(app: &AppHandle, config: &Config) -> tauri::Result<()> {
     let mut menu = MenuBuilder::new(app).item(&show);
 
     for g in &config.groups {
-        let mut tools: Vec<_> = config
+        let tools: Vec<_> = config
             .tools
             .iter()
             .filter(|t| t.group_id.as_deref() == Some(g.id.as_str()))
@@ -25,7 +25,7 @@ pub fn rebuild(app: &AppHandle, config: &Config) -> tauri::Result<()> {
         if tools.is_empty() {
             continue;
         }
-        tools.sort_by_key(|t| t.sort);
+        // 菜单顺序 = 卡片顺序 = 数组（插入）顺序，没有额外的排序字段
         let mut sub = SubmenuBuilder::new(app, &g.name);
         for t in tools {
             sub = sub.item(&MenuItemBuilder::with_id(format!("t:{}", t.id), &t.name).build(app)?);

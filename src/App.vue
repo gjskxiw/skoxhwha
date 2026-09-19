@@ -55,7 +55,25 @@ const visibleTools = computed<Tool[]>(() => {
         t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q),
     );
   }
-  return [...list].sort((a, b) => a.sort - b.sort);
+  // 卡片顺序 = 数组（插入）顺序，没有单独的排序字段
+  return [...list];
+});
+
+/**
+ * 空视图的三种成因要分开说：搜不到、这个分组是空的、真的一个工具都没有。
+ * 之前三者共用「还没有工具，点击新建」，前两种会给错指引。
+ */
+const emptyReason = computed<"search" | "group" | "none" | null>(() => {
+  if (visibleTools.value.length > 0) return null;
+  if (store.search.trim()) return "search";
+  if (store.activeGroupId !== "all") return "group";
+  return "none";
+});
+
+const activeGroupName = computed(() => {
+  if (store.activeGroupId === "none") return "「未分组」";
+  const g = store.config.groups.find((x) => x.id === store.activeGroupId);
+  return g ? `「${g.name}」` : "当前分组";
 });
 
 async function launch(tool: Tool, asAdmin = false) {
@@ -292,10 +310,20 @@ async function importCfg() {
 
         <!-- 内容区 -->
         <main class="flex-1 overflow-y-auto p-4">
-          <div v-if="visibleTools.length === 0" class="grid h-full place-items-center">
-            <div class="text-center text-sm text-muted-foreground space-y-2">
+          <div v-if="emptyReason" class="grid h-full place-items-center">
+            <div class="space-y-2 text-center text-sm text-muted-foreground">
               <Wrench class="mx-auto size-10 opacity-40" />
-              <p>还没有工具，点击右上角「新建工具」添加</p>
+              <template v-if="emptyReason === 'search'">
+                <p>没有匹配「{{ store.search.trim() }}」的工具</p>
+                <Button variant="link" size="sm" @click="store.search = ''">清空搜索</Button>
+              </template>
+              <template v-else-if="emptyReason === 'group'">
+                <p>{{ activeGroupName }}里还没有工具</p>
+                <p class="text-xs">新建工具时选到这个分组，或在卡片右键「编辑」里改它的分组</p>
+              </template>
+              <template v-else>
+                <p>还没有工具，点击右上角「新建工具」添加</p>
+              </template>
             </div>
           </div>
 

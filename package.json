@@ -1,12 +1,11 @@
 {
   "name": "secaxis",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "pnpm check:version && vue-tsc --noEmit && vite build",
-    "preview": "vite preview",
     "check:version": "node scripts/check-version.mjs",
     "tauri": "tauri"
   },

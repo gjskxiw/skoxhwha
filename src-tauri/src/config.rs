@@ -102,8 +102,14 @@ pub struct Group {
     pub id: String,
     #[serde(default)]
     pub name: String,
+    /// 侧栏色标，取值是前端 GROUP_COLORS 的键（"" = 不上色）。
+    /// 只做展示，取值非法时前端查不到就不画点，因此不参与导入校验。
+    #[serde(default)]
+    pub color: String,
 }
 
+/// 工具卡片。展示顺序就是 `Config.tools` 的数组顺序（新建时追加到末尾），
+/// 没有额外的排序字段 —— 界面上不提供拖拽或上移下移，插入序即所见序。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tool {
@@ -125,8 +131,6 @@ pub struct Tool {
     pub icon: Option<String>, // data/icons 下的文件名
     #[serde(default)]
     pub description: String,
-    #[serde(default)]
-    pub sort: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -447,6 +451,35 @@ mod tests {
         assert_eq!(back.version, cfg.version);
         assert_eq!(back.settings.theme, cfg.settings.theme);
         assert!(back.tools.is_empty());
+    }
+
+    /// 分组色标是后加的：旧配置没有这个字段要能加载，缺省为不上色。
+    /// 未知取值也照常加载 —— 色标只做展示，前端查不到就不画点，不参与启动判断。
+    #[test]
+    fn group_color_is_optional() {
+        let cfg: Config =
+            serde_json::from_str(r#"{ "groups": [ { "id": "g1", "name": "G" } ] }"#).unwrap();
+        assert_eq!(cfg.groups[0].color, "");
+
+        let cfg2: Config = serde_json::from_str(
+            r#"{ "groups": [ { "id": "g1", "name": "G", "color": "chartreuse" } ] }"#,
+        )
+        .unwrap();
+        assert_eq!(cfg2.groups[0].color, "chartreuse");
+    }
+
+    /// 已删除的 Tool.sort 出现在旧配置 / 别人导出的文件里必须被忽略，
+    /// 而不是让整份 config 解析失败（那会把用户的工具列表清空）
+    #[test]
+    fn removed_sort_field_is_ignored() {
+        let cfg: Config = serde_json::from_str(
+            r#"{ "tools": [ { "id":"t1","name":"A","type":"gui_exe","target":"C:\\x.exe","sort":7 } ] }"#,
+        )
+        .unwrap();
+        assert_eq!(cfg.tools.len(), 1);
+        // 重新导出时不再带上这个字段
+        let json = serde_json::to_string(&cfg).unwrap();
+        assert!(!json.contains("sort"), "导出不应再带已删除的字段: {json}");
     }
 
     // ---- 导入配置的引用收敛 ----
