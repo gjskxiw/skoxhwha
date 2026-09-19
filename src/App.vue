@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { Download, FolderPlus, Moon, RotateCcw, Search, Sun, TriangleAlert, Upload, Wrench } from "@lucide/vue";
+import { Download, FolderPlus, Moon, RotateCcw, Search, Sun, TriangleAlert, Upload, Wrench, X } from "@lucide/vue";
 import { open as openFileDialog, save as saveFileDialog } from "@tauri-apps/plugin-dialog";
 import javaLogo from "devicon/icons/java/java-original.svg";
 import pythonLogo from "devicon/icons/python/python-original.svg";
@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
 import { confirmAction } from "@/lib/confirm";
+import { clearNotice, notice, notify } from "@/lib/notice";
 import { applyTheme, commitConfig, initStore, refreshStatuses, replaceConfig, store } from "@/lib/store";
 import { type CloseAction, type ThemeMode, type Tool } from "@/lib/types";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -58,15 +59,24 @@ const visibleTools = computed<Tool[]>(() => {
 });
 
 async function launch(tool: Tool, asAdmin = false) {
-  // 启动失败的原因由后端写进 data\logs\app.log，界面不再弹提示
-  await api.launchTool(tool.id, asAdmin).catch(() => {});
+  try {
+    await api.launchTool(tool.id, asAdmin);
+  } catch (e) {
+    // 原因同时由后端写进 data\logs\app.log
+    notify(`「${tool.name}」启动失败：${String(e)}`, "error");
+  }
   // 无论成败都刷新依赖状态（目标文件可能刚被补齐或删掉）
   await refreshStatuses();
 }
 
 /** 在资源管理器里打开工具的工作目录（= 目标文件所在目录，由后端解析） */
 async function openToolDir(tool: Tool) {
-  await api.openToolDir(tool.id).catch(() => {});
+  try {
+    await api.openToolDir(tool.id);
+  } catch (e) {
+    // 后端消息已自带「打开工作目录失败：」前缀，别再叠一层
+    notify(String(e), "error");
+  }
 }
 
 async function deleteTool(tool: Tool) {
@@ -75,9 +85,13 @@ async function deleteTool(tool: Tool) {
     confirmText: "删除",
   });
   if (!ok) return;
-  await commitConfig((d) => {
-    d.tools = d.tools.filter((t) => t.id !== tool.id);
-  }).catch(() => {});
+  try {
+    await commitConfig((d) => {
+      d.tools = d.tools.filter((t) => t.id !== tool.id);
+    });
+  } catch (e) {
+    notify(`删除失败，配置未写入：${String(e)}`, "error");
+  }
 }
 
 // —— 设置快捷按钮（点击即切换/操作，立即保存） ——
@@ -98,18 +112,26 @@ async function cycleTheme() {
   const order: ThemeMode[] = ["light", "dark"];
   const next = order[(order.indexOf(store.config.settings.theme) + 1) % order.length];
   // 主题由 store 的 watch 统一应用，保存成功后才生效，失败时界面与磁盘不会脱节
-  await commitConfig((d) => {
-    d.settings.theme = next;
-  }).catch(() => {});
+  try {
+    await commitConfig((d) => {
+      d.settings.theme = next;
+    });
+  } catch (e) {
+    notify(`主题未能保存：${String(e)}`, "error");
+  }
 }
 
 /** 关闭窗口行为开关：开 = 最小化到托盘，关 = 退出程序 */
 async function setCloseToTray(tray: boolean) {
   const next: CloseAction = tray ? "tray" : "exit";
   if (next === store.config.settings.closeAction) return;
-  await commitConfig((d) => {
-    d.settings.closeAction = next;
-  }).catch(() => {});
+  try {
+    await commitConfig((d) => {
+      d.settings.closeAction = next;
+    });
+  } catch (e) {
+    notify(`设置未能保存：${String(e)}`, "error");
+  }
 }
 
 // 导入 / 导出共用：防止连点同时打开两个文件选择器
@@ -123,9 +145,11 @@ async function exportCfg() {
       defaultPath: "secaxis-config.json",
       filters: [{ name: "JSON", extensions: ["json"] }],
     });
-    if (p) await api.exportConfig(p);
-  } catch {
-    // 失败不再弹提示
+    if (!p) return;
+    await api.exportConfig(p);
+    notify(`配置已导出到 ${p.split(/[\\/]/).pop()}`);
+  } catch (e) {
+    notify(`导出失败：${String(e)}`, "error");
   } finally {
     cfgBusy.value = false;
   }
@@ -147,12 +171,22 @@ async function importCfg() {
       { title: "导入配置", confirmText: "导入并替换" },
     );
     if (!ok) return;
-    // 后端对引用做的收敛（warnings）不再提示：被清掉绑定的工具会在卡片上标红说明原因
-    const { config: cfg } = await api.importConfig(p);
+    const { config: cfg, warnings } = await api.importConfig(p);
     await replaceConfig(cfg);
     applyTheme();
-  } catch {
-    // 失败不再弹提示
+    if (warnings.length > 0) {
+      // 引用被收敛过就必须说出来：悬空的环境引用会让工具无法启动。
+      // 完整清单同时由后端写进 app.log，状态条只放得下第一条。
+      notify(
+        warnings.length > 1
+          ? `配置已导入，但有 ${warnings.length} 项引用被修正：${warnings[0]}……（详见日志）`
+          : `配置已导入，但有引用被修正：${warnings[0]}`,
+        "error",
+        10000,
+      );
+    }
+  } catch (e) {
+    notify(`导入失败：${String(e)}`, "error");
   } finally {
     cfgBusy.value = false;
   }
@@ -281,6 +315,34 @@ async function importCfg() {
             />
           </div>
         </main>
+      </div>
+
+      <!-- 状态条：非浮动的结果反馈，只在有内容时占位，几秒后自动收起 -->
+      <div
+        v-if="notice.current"
+        role="status"
+        aria-live="polite"
+        class="flex shrink-0 items-start gap-2 border-t px-4 py-1.5 text-xs"
+        :class="
+          notice.current.kind === 'error'
+            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+            : 'bg-muted text-muted-foreground'
+        "
+      >
+        <TriangleAlert
+          v-if="notice.current.kind === 'error'"
+          class="mt-0.5 size-3.5 shrink-0"
+        />
+        <span class="min-w-0 flex-1 break-words">{{ notice.current.text }}</span>
+        <button
+          type="button"
+          class="mt-0.5 shrink-0 rounded opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-hidden"
+          title="关闭提示"
+          aria-label="关闭提示"
+          @click="clearNotice"
+        >
+          <X class="size-3.5" />
+        </button>
       </div>
 
       <ToolFormDialog ref="toolFormRef" />

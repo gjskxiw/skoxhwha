@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/context-menu";
 import { Separator } from "@/components/ui/separator";
 import { confirmAction } from "@/lib/confirm";
+import { notify } from "@/lib/notice";
 import { commitConfig, uid, store } from "@/lib/store";
 
 const counts = computed<Record<string, number>>(() => {
@@ -106,8 +107,8 @@ async function deleteGroup(id: string) {
       }
     });
     if (store.activeGroupId === id) store.activeGroupId = "all";
-  } catch {
-    // 删除失败保持现状
+  } catch (e) {
+    notify(`删除分组失败，配置未写入：${String(e)}`, "error");
   }
 }
 </script>

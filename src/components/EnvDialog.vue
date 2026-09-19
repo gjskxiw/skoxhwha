@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { confirmAction } from "@/lib/confirm";
+import { notify } from "@/lib/notice";
 import { commitConfig, store, uid } from "@/lib/store";
 import type { Env, EnvKind } from "@/lib/types";
 
@@ -84,8 +85,8 @@ async function removeEnv(env: Env) {
         if (t.envId === env.id) t.envId = null;
       }
     });
-  } catch {
-    // 删除失败保持现状
+  } catch (e) {
+    notify(`删除环境失败，配置未写入：${String(e)}`, "error");
   }
 }
 </script>

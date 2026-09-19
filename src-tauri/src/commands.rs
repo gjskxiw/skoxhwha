@@ -62,6 +62,14 @@ pub fn get_state(state: State<'_, AppState>) -> Config {
     state.config().clone()
 }
 
+/// 界面已不弹通知，命令层失败只有 app.log 一个出口 —— 先落盘再把错误抛回前端。
+fn log_err<T>(data_dir: &Path, res: Result<T, String>) -> Result<T, String> {
+    if let Err(e) = &res {
+        logging::error(data_dir, e);
+    }
+    res
+}
+
 #[tauri::command]
 pub async fn save_config(
     app: AppHandle,
@@ -77,9 +85,11 @@ pub async fn save_config(
     // 写盘（含 sync_all 落盘）放阻塞线程池，不占主线程
     let dir = data_dir.clone();
     let to_save = config.clone();
-    tauri::async_runtime::spawn_blocking(move || config::save(&dir, &to_save))
+    let saved = tauri::async_runtime::spawn_blocking(move || config::save(&dir, &to_save))
         .await
-        .map_err(|e| format!("保存配置失败: {e}"))??;
+        .map_err(|e| format!("保存配置失败: {e}"))
+        .flatten();
+    log_err(&data_dir, saved)?;
 
     *state.config() = config.clone();
 
@@ -175,17 +185,20 @@ pub async fn open_tool_dir(
         launcher::workdir_of(tool)
     };
     // ShellExecute 拉起资源管理器（冷启动可能上百毫秒），放阻塞线程池
-    tauri::async_runtime::spawn_blocking(move || {
+    let data_dir = state.data_dir.clone();
+    let opened = tauri::async_runtime::spawn_blocking(move || {
         use tauri_plugin_opener::OpenerExt;
         if !dir.is_dir() {
-            return Err(format!("目录不存在: {}", dir.display()));
+            return Err(format!("打开工作目录失败：目录不存在: {}", dir.display()));
         }
         app.opener()
             .open_path(dir.display().to_string(), None::<&str>)
             .map_err(|e| format!("打开目录失败: {e}"))
     })
     .await
-    .map_err(|e| format!("打开目录失败: {e}"))?
+    .map_err(|e| format!("打开目录失败: {e}"))
+    .flatten();
+    log_err(&data_dir, opened)
 }
 
 /// 保存前探测：把「目录」当成环境跑一次 `java -version` / `python --version`。
@@ -254,12 +267,17 @@ pub async fn get_icons(
 #[tauri::command]
 pub async fn export_config(state: State<'_, AppState>, path: String) -> Result<(), String> {
     let cfg = state.config().clone();
-    tauri::async_runtime::spawn_blocking(move || {
+    let data_dir = state.data_dir.clone();
+    let target = path.clone();
+    let exported = tauri::async_runtime::spawn_blocking(move || {
         let json = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
         std::fs::write(&path, json).map_err(|e| format!("写入失败: {e}"))
     })
     .await
-    .map_err(|e| format!("导出失败: {e}"))?
+    .map_err(|e| format!("导出失败: {e}"))
+    .flatten()
+    .map_err(|e| format!("导出配置失败：{e}（{target}）"));
+    log_err(&data_dir, exported)
 }
 
 /// 导入配置的大小上限。配置本身只有几十 KB，设上限是为了避免误选一个巨大的
@@ -304,7 +322,7 @@ pub async fn import_config(
     path: String,
 ) -> Result<ImportResult, String> {
     let path_for_log = path.clone();
-    let (cfg, warnings) =
+    let parsed =
         tauri::async_runtime::spawn_blocking(move || -> Result<(Config, Vec<String>), String> {
             prepare_import(Path::new(&path))?;
             let text = std::fs::read_to_string(&path).map_err(|e| format!("读取失败: {e}"))?;
@@ -349,7 +367,10 @@ pub async fn import_config(
             Ok((cfg, warnings))
         })
         .await
-        .map_err(|e| format!("导入失败: {e}"))??;
+        .map_err(|e| format!("导入失败: {e}"))
+        .flatten()
+        .map_err(|e| format!("导入配置失败：{e}（{path_for_log}）"));
+    let (cfg, warnings) = log_err(&state.data_dir, parsed)?;
     if warnings.is_empty() {
         logging::info(&state.data_dir, &format!("导入配置：{path_for_log}"));
     } else {

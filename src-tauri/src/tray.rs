@@ -12,6 +12,7 @@ pub fn rebuild(app: &AppHandle, config: &Config) -> tauri::Result<()> {
     let _ = app.remove_tray_by_id(TRAY_ID);
 
     let show = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
+    let log = MenuItemBuilder::with_id("log", "打开日志文件").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
     let mut menu = MenuBuilder::new(app).item(&show);
 
@@ -46,7 +47,7 @@ pub fn rebuild(app: &AppHandle, config: &Config) -> tauri::Result<()> {
     }
 
     let sep = PredefinedMenuItem::separator(app)?;
-    let menu = menu.item(&sep).item(&quit).build()?;
+    let menu = menu.item(&sep).item(&log).item(&quit).build()?;
 
     let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(
@@ -61,6 +62,7 @@ pub fn rebuild(app: &AppHandle, config: &Config) -> tauri::Result<()> {
             let id = event.id().as_ref();
             match id {
                 "show" => show_main(app),
+                "log" => open_log(app),
                 "quit" => {
                     crate::persist_window_bounds(app);
                     app.exit(0);
@@ -99,6 +101,20 @@ pub fn show_main(app: &AppHandle) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+    }
+}
+
+/// 用系统关联的程序打开 data\logs\app.log。
+/// 界面不再弹通知，日志就成了失败的唯一出口，所以入口要能在托盘里直接点到。
+fn open_log(app: &AppHandle) {
+    use tauri_plugin_opener::OpenerExt;
+    let dir = app.state::<crate::config::AppState>().data_dir.clone();
+    let path = dir.join("logs").join("app.log");
+    if let Err(e) = app
+        .opener()
+        .open_path(path.display().to_string(), None::<&str>)
+    {
+        crate::logging::error(&dir, &format!("打开日志文件失败: {e}"));
     }
 }
 
