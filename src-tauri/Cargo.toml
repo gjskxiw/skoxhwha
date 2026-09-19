@@ -1,6 +1,6 @@
 [package]
 name = "secaxis"
-version = "1.0.0"
+version = "1.0.1"
 description = "SecAxis - 统一管理启动的工具箱"
 authors = ["SecAxis"]
 edition = "2021"
