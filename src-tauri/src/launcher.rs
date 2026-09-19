@@ -163,7 +163,10 @@ fn check_cmd_args(what: &str, args: &[String]) -> Result<(), String> {
             return Err(format!("{what}含双引号，无法安全交给终端：{arg}"));
         }
         if let Some(c) = arg.chars().find(|c| LINE_BREAK_CHARS.contains(c)) {
-            return Err(format!("{what}含换行（{}），会被终端当成语句分隔符", c as u32));
+            return Err(format!(
+                "{what}含换行（{}），会被终端当成语句分隔符",
+                c as u32
+            ));
         }
     }
     Ok(())
@@ -545,7 +548,12 @@ fn launch_terminal(tool: &Tool, config: &Config) -> Result<(), String> {
         }
     };
     let env_bin = env.map(bin_dir);
-    let line = terminal_cmd_line(&program, &command_arguments(tool), env_bin.as_deref(), &workdir);
+    let line = terminal_cmd_line(
+        &program,
+        &command_arguments(tool),
+        env_bin.as_deref(),
+        &workdir,
+    );
 
     // raw_arg：整行由我们自己引用过，不能再让标准库加一层（它会把引号变成 cmd 看不懂的 \"）
     let mut cmd = Command::new(cmd_path());
@@ -650,8 +658,12 @@ mod tests {
             name: String::new(),
             path: path.into(),
         };
-        let missing = validate_env(&env(EnvKind::Python, "C:\\secaxis-self-test\\nope")).unwrap_err();
-        assert!(missing.starts_with("可执行文件不存在"), "原始错误：{missing}");
+        let missing =
+            validate_env(&env(EnvKind::Python, "C:\\secaxis-self-test\\nope")).unwrap_err();
+        assert!(
+            missing.starts_with("可执行文件不存在"),
+            "原始错误：{missing}"
+        );
         let unknown = validate_env(&env(EnvKind::Unknown, "C:\\")).unwrap_err();
         assert!(unknown.starts_with("未知的环境类型"), "原始错误：{unknown}");
     }
@@ -701,28 +713,20 @@ mod tests {
         assert!(check(&tool(ToolKind::GuiExe, "C:\\x\\a.py"), &cfg)
             .unwrap_err()
             .contains("需要 .exe"));
-        assert!(
-            check(&tool(ToolKind::TerminalPython, "C:\\x\\a.txt"), &cfg)
-                .unwrap_err()
-                .contains("需要 .py")
-        );
-        assert!(
-            check(&tool(ToolKind::TerminalJava, "C:\\x\\a.exe"), &cfg)
-                .unwrap_err()
-                .contains("需要 .jar")
-        );
+        assert!(check(&tool(ToolKind::TerminalPython, "C:\\x\\a.txt"), &cfg)
+            .unwrap_err()
+            .contains("需要 .py"));
+        assert!(check(&tool(ToolKind::TerminalJava, "C:\\x\\a.exe"), &cfg)
+            .unwrap_err()
+            .contains("需要 .jar"));
         // 大小写不敏感
-        assert!(
-            check(&tool(ToolKind::TerminalExe, "C:\\x\\a.EXE"), &cfg)
-                .unwrap_err()
-                .contains("EXE 不存在")
-        );
+        assert!(check(&tool(ToolKind::TerminalExe, "C:\\x\\a.EXE"), &cfg)
+            .unwrap_err()
+            .contains("EXE 不存在"));
         // 完全没有扩展名
-        assert!(
-            check(&tool(ToolKind::TerminalExe, "C:\\x\\tool"), &cfg)
-                .unwrap_err()
-                .contains("无扩展名")
-        );
+        assert!(check(&tool(ToolKind::TerminalExe, "C:\\x\\tool"), &cfg)
+            .unwrap_err()
+            .contains("无扩展名"));
     }
 
     /// Web 只接受 http / https
@@ -817,8 +821,7 @@ mod tests {
             Path::new(r"C:\tools"),
         );
         assert_eq!(
-            line,
-            r#"cd /d "C:\tools" && "C:\tools\nmap.exe" "-sV""#,
+            line, r#"cd /d "C:\tools" && "C:\tools\nmap.exe" "-sV""#,
             "命令行里 nmap.exe 只应出现一次"
         );
     }
@@ -841,8 +844,15 @@ mod tests {
         );
         // 参数各自成对引号包裹，且都排在 `&&` 之后（不再有任何裸的 cmd 分隔符）
         let tail = line.split_once("&& ").unwrap().1;
-        assert_eq!(tail, r#""C:\Program Files\Tools\nmap.exe" "-sV" "&" "calc.exe""#);
-        assert_eq!(tail.matches('"').count(), 8, "四个 token 各一对引号: {tail}");
+        assert_eq!(
+            tail,
+            r#""C:\Program Files\Tools\nmap.exe" "-sV" "&" "calc.exe""#
+        );
+        assert_eq!(
+            tail.matches('"').count(),
+            8,
+            "四个 token 各一对引号: {tail}"
+        );
         assert!(tail.contains("\"&\""), "与号必须在引号内: {tail}");
     }
 
@@ -893,7 +903,11 @@ mod tests {
         gui.push("-jar".into());
         gui.push(g.target.clone());
         gui.extend(rest);
-        assert_eq!(gui, command_arguments(&t), "终端与 GUI 的 Java 参数顺序要一致");
+        assert_eq!(
+            gui,
+            command_arguments(&t),
+            "终端与 GUI 的 Java 参数顺序要一致"
+        );
     }
 
     /// 提权路径靠 quote_windows_arg 逐参数引用，规则要与 CommandLineToArgvW 一致
@@ -921,9 +935,18 @@ mod tests {
     #[test]
     fn check_cmd_args_rejects_what_quoting_cannot_express() {
         let ok = |s: &[&str]| -> bool {
-            check_cmd_args("启动参数", &s.iter().map(|x| x.to_string()).collect::<Vec<_>>()).is_ok()
+            check_cmd_args(
+                "启动参数",
+                &s.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
+            )
+            .is_ok()
         };
-        assert!(ok(&["-sV", "--opt=a b", "https://x?a=1&b=2", "--name=O'Brien"]));
+        assert!(ok(&[
+            "-sV",
+            "--opt=a b",
+            "https://x?a=1&b=2",
+            "--name=O'Brien"
+        ]));
         assert!(!ok(&["%PATH%"]), "% 会被 cmd 展开后再解析一次");
         assert!(!ok(&["a\nb"]), "换行是语句分隔符");
         assert!(!ok(&["say \"hi\""]), "内层双引号会破坏参数边界");
@@ -948,7 +971,10 @@ mod tests {
         assert!(check_env_path("环境路径", "").is_err());
         assert!(check_env_path("环境路径", "C:\\a\\\"b").is_err());
         assert!(check_env_path("环境路径", "C:\\a'b").is_err());
-        assert!(check_env_path("环境路径", "C:\\a\nb").is_err(), "换行必须被拒绝");
+        assert!(
+            check_env_path("环境路径", "C:\\a\nb").is_err(),
+            "换行必须被拒绝"
+        );
         assert!(
             check_env_path("环境路径", "C:\\%JDK_HOME%\\bin").is_err(),
             "% 会被 cmd 展开，必须被拒绝"

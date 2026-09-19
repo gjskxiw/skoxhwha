@@ -123,10 +123,7 @@ pub async fn check_tools_status(
                         missing: String::new(),
                     },
                 ),
-                Err(missing) => (
-                    t.id.clone(),
-                    CheckResult { ok: false, missing },
-                ),
+                Err(missing) => (t.id.clone(), CheckResult { ok: false, missing }),
             })
             .collect::<HashMap<_, _>>()
     })
@@ -343,7 +340,8 @@ pub async fn import_config(
             let mut dropped_envs: HashSet<String> = HashSet::new();
             let mut env_notes: Vec<String> = Vec::new();
             cfg.envs.retain(|e| {
-                match launcher::check_env_path(&format!("环境「{}」的路径", e.name), &e.path) {
+                match launcher::check_env_path(&format!("环境「{}」的路径", e.name), &e.path)
+                {
                     Ok(()) => true,
                     Err(why) => {
                         env_notes.push(why);
@@ -392,4 +390,3 @@ pub async fn import_config(
         warnings,
     })
 }
-
