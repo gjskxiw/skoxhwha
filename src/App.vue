@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { Download, FolderPlus, Moon, RotateCcw, Search, Sun, TriangleAlert, Upload, Wrench, X } from "@lucide/vue";
+import { Download, FolderPlus, Layers, Moon, RotateCcw, Search, Sun, TriangleAlert, Upload, Wrench, X } from "@lucide/vue";
 import { open as openFileDialog, save as saveFileDialog } from "@tauri-apps/plugin-dialog";
-import javaLogo from "devicon/icons/java/java-original.svg";
-import pythonLogo from "devicon/icons/python/python-original.svg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -245,20 +243,11 @@ async function importCfg() {
             <Button
               variant="ghost"
               size="icon"
-              title="Java 环境"
-              aria-label="Java 环境"
-              @click="envDialogRef?.open('java')"
+              title="运行环境"
+              aria-label="运行环境"
+              @click="envDialogRef?.open()"
             >
-              <img :src="javaLogo" class="size-4" alt="" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Python 环境"
-              aria-label="Python 环境"
-              @click="envDialogRef?.open('python')"
-            >
-              <img :src="pythonLogo" class="size-4" alt="" />
+              <Layers />
             </Button>
           </div>
           <Separator orientation="vertical" class="h-5!" />

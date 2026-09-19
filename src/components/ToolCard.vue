@@ -12,8 +12,6 @@ import {
   TriangleAlert,
   Trash2,
 } from "@lucide/vue";
-import javaLogo from "devicon/icons/java/java-original.svg";
-import pythonLogo from "devicon/icons/python/python-original.svg";
 import { Badge } from "@/components/ui/badge";
 import {
   ContextMenu,
@@ -42,21 +40,20 @@ function onCardDblClick() {
   emit("launch", props.tool);
 }
 
-/** Java / Python 类工具用 Devicon 原生 logo */
-const TYPE_LOGO: Partial<Record<ToolType, string>> = {
-  terminal_python: pythonLogo,
-  terminal_java: javaLogo,
-  gui_java: javaLogo,
-};
-
-const TYPE_ICON: Partial<Record<ToolType, unknown>> = {
+/**
+ * 图座只表达「怎么跑」：终端 / 窗口 / 网页。
+ * 具体语言（Python / Java / exe）由下面那枚彩色类型徽章承担，两处不必各说一遍。
+ */
+const TYPE_ICON: Record<ToolType, unknown> = {
+  terminal_python: SquareTerminal,
+  terminal_java: SquareTerminal,
   terminal_exe: SquareTerminal,
+  gui_java: AppWindow,
   gui_exe: AppWindow,
   web: Globe,
   unknown: CircleHelp,
 };
 
-const typeLogo = computed(() => TYPE_LOGO[props.tool.type]);
 const typeIcon = computed(() => TYPE_ICON[props.tool.type]);
 /** 网页类型没有文件路径，也就没有工作目录 */
 const isWeb = computed(() => props.tool.type === "web");
@@ -104,7 +101,6 @@ const subline = computed(() =>
             class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted/60 inset-ring inset-ring-border"
           >
             <img v-if="iconSrc" :src="iconSrc" class="size-6 object-contain" alt="" />
-            <img v-else-if="typeLogo" :src="typeLogo" class="size-6 object-contain" alt="" />
             <component :is="typeIcon" v-else class="size-5 text-muted-foreground" />
           </div>
           <div class="min-w-0 flex-1">

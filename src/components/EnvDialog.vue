@@ -20,8 +20,11 @@ const KINDS: { kind: EnvKind; label: string }[] = [
   { kind: "python", label: "Python" },
 ];
 
-function openDialog(kind: EnvKind = "java") {
-  activeKind.value = kind;
+/**
+ * 顶栏只有一个入口，进来时停在上次看的那一类。
+ * （早年是 Java / Python 两个按钮各自带 kind 进来，弹窗内不能切换时才需要那参数）
+ */
+function openDialog() {
   addError.value = "";
   showUnbound.value = false;
   open.value = true;
