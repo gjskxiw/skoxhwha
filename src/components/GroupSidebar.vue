@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { confirmAction } from "@/lib/confirm";
 import { commitConfig, uid, store } from "@/lib/store";
-import { toast } from "vue-sonner";
 
 const counts = computed<Record<string, number>>(() => {
   const c: Record<string, number> = { all: store.config.tools.length, none: 0 };
@@ -30,11 +29,19 @@ const renameTargetId = ref<string | null>(null);
 const groupNameInput = ref("");
 /** 保存中：防止连点「确定」把同一分组提交两次 */
 const saving = ref(false);
+/** 上一次提交被拒的原因，显示在输入框下方 */
+const groupError = ref("");
+
+// 改过名称，上一次的原因就过期了
+watch(groupNameInput, () => {
+  groupError.value = "";
+});
 
 function openNewGroup() {
   groupDialogMode.value = "new";
   renameTargetId.value = null;
   groupNameInput.value = "";
+  groupError.value = "";
   groupDialogOpen.value = true;
 }
 
@@ -46,6 +53,7 @@ function openRenameGroup(id: string) {
   groupDialogMode.value = "rename";
   renameTargetId.value = id;
   groupNameInput.value = g.name;
+  groupError.value = "";
   groupDialogOpen.value = true;
 }
 
@@ -55,7 +63,7 @@ async function confirmGroup() {
   if (saving.value || !groupDialogOpen.value) return;
   const name = groupNameInput.value.trim();
   if (!name) {
-    toast.warning("请填写分组名称");
+    groupError.value = "请填写分组名称";
     return;
   }
   const isNewGroup = groupDialogMode.value === "new";
@@ -70,8 +78,9 @@ async function confirmGroup() {
         if (g) g.name = name;
       }
     });
-  } catch (e) {
-    toast.error("保存分组失败", { description: String(e) });
+  } catch {
+    // 写盘失败时弹窗保持打开，别丢掉用户刚输入的名字
+    groupError.value = "保存失败，分组未写入";
     return;
   } finally {
     saving.value = false;
@@ -97,8 +106,8 @@ async function deleteGroup(id: string) {
       }
     });
     if (store.activeGroupId === id) store.activeGroupId = "all";
-  } catch (e) {
-    toast.error("删除分组失败", { description: String(e) });
+  } catch {
+    // 删除失败保持现状
   }
 }
 </script>
@@ -151,6 +160,7 @@ async function deleteGroup(id: string) {
           <DialogTitle>{{ groupDialogMode === "new" ? "新建分组" : "重命名分组" }}</DialogTitle>
         </DialogHeader>
         <Input v-model="groupNameInput" @keydown.enter="confirmGroup" />
+        <p v-if="groupError" role="alert" class="text-xs text-destructive">{{ groupError }}</p>
         <DialogFooter>
           <Button variant="outline" @click="groupDialogOpen = false">取消</Button>
           <Button :disabled="saving" @click="confirmGroup">确定</Button>

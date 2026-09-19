@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { toast } from "vue-sonner";
 import { LoaderCircle, Trash2 } from "@lucide/vue";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
@@ -14,9 +13,12 @@ const open = ref(false);
 const activeKind = ref<EnvKind>("java");
 /** 正在走「选目录 → 探测 → 添加」的流程 */
 const adding = ref(false);
+/** 上一次探测失败的原因，显示在「添加」按钮下方 */
+const addError = ref("");
 
 function openDialog(kind: EnvKind = "java") {
   activeKind.value = kind;
+  addError.value = "";
   open.value = true;
 }
 defineExpose({ open: openDialog });
@@ -42,6 +44,7 @@ async function startNew() {
   if (adding.value) return;
   // 先把标记立起来再开选择器：否则快速双击会弹出两个目录选择器、添加两个环境
   adding.value = true;
+  addError.value = "";
   try {
     const dir = await openFileDialog({
       directory: true,
@@ -58,13 +61,9 @@ async function startNew() {
         path: dir,
       });
     });
-    toast.success(`已添加「${probe.name}」`, {
-      description: probe.detail.split("\n")[0],
-    });
   } catch (e) {
-    toast.error("这个目录不是有效的环境", {
-      description: `${String(e)}\n换一个目录再试。`,
-    });
+    // 探测失败不入库，原因就地显示；成功后列表里出现新条目即是反馈
+    addError.value = `这个目录不是有效的环境：${String(e)}；换一个目录再试。`;
   } finally {
     adding.value = false;
   }
@@ -85,8 +84,8 @@ async function removeEnv(env: Env) {
         if (t.envId === env.id) t.envId = null;
       }
     });
-  } catch (e) {
-    toast.error("删除失败", { description: String(e) });
+  } catch {
+    // 删除失败保持现状
   }
 }
 </script>
@@ -108,6 +107,10 @@ async function removeEnv(env: Env) {
             {{ adding ? "识别中…" : "添加" }}
           </Button>
         </div>
+
+        <p v-if="addError" role="alert" class="-mt-1 mb-3 break-words text-xs text-destructive">
+          {{ addError }}
+        </p>
 
         <div
           v-if="envsOf(activeKind).length === 0"

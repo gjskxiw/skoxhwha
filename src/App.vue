@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { Toaster, toast } from "vue-sonner";
 import { Download, FolderPlus, Moon, RotateCcw, Search, Sun, TriangleAlert, Upload, Wrench } from "@lucide/vue";
 import { open as openFileDialog, save as saveFileDialog } from "@tauri-apps/plugin-dialog";
 import javaLogo from "devicon/icons/java/java-original.svg";
@@ -26,12 +25,8 @@ const envDialogRef = ref<InstanceType<typeof EnvDialog>>();
 const groupSidebarRef = ref<InstanceType<typeof GroupSidebar>>();
 
 async function bootstrap() {
-  try {
-    await initStore();
-  } catch (e) {
-    // 失败原因已记进 store.loadError，界面会显示重试入口
-    toast.error("加载配置失败", { description: String(e) });
-  }
+  // 失败原因记进 store.loadError，由全屏错误视图接管
+  await initStore().catch(() => {});
 }
 
 onMounted(() => {
@@ -63,23 +58,15 @@ const visibleTools = computed<Tool[]>(() => {
 });
 
 async function launch(tool: Tool, asAdmin = false) {
-  try {
-    await api.launchTool(tool.id, asAdmin);
-    toast.success(asAdmin ? `已以管理员身份启动「${tool.name}」` : `已启动「${tool.name}」`);
-    // 启动后刷新依赖状态（目标文件可能刚被补齐或删掉）
-    await refreshStatuses();
-  } catch (e) {
-    toast.error(`「${tool.name}」启动失败`, { description: String(e) });
-  }
+  // 启动失败的原因由后端写进 data\logs\app.log，界面不再弹提示
+  await api.launchTool(tool.id, asAdmin).catch(() => {});
+  // 无论成败都刷新依赖状态（目标文件可能刚被补齐或删掉）
+  await refreshStatuses();
 }
 
 /** 在资源管理器里打开工具的工作目录（= 目标文件所在目录，由后端解析） */
 async function openToolDir(tool: Tool) {
-  try {
-    await api.openToolDir(tool.id);
-  } catch (e) {
-    toast.error("打开工作目录失败", { description: String(e) });
-  }
+  await api.openToolDir(tool.id).catch(() => {});
 }
 
 async function deleteTool(tool: Tool) {
@@ -88,11 +75,9 @@ async function deleteTool(tool: Tool) {
     confirmText: "删除",
   });
   if (!ok) return;
-  commitConfig((d) => {
+  await commitConfig((d) => {
     d.tools = d.tools.filter((t) => t.id !== tool.id);
-  })
-    .then(() => toast.success("已删除"))
-    .catch((e) => toast.error("删除失败", { description: String(e) }));
+  }).catch(() => {});
 }
 
 // —— 设置快捷按钮（点击即切换/操作，立即保存） ——
@@ -112,29 +97,19 @@ const themeIcon = computed(() =>
 async function cycleTheme() {
   const order: ThemeMode[] = ["light", "dark"];
   const next = order[(order.indexOf(store.config.settings.theme) + 1) % order.length];
-  try {
-    // 主题由 store 的 watch 统一应用，等保存成功后再生效，失败时界面与磁盘不会脱节
-    await commitConfig((d) => {
-      d.settings.theme = next;
-    });
-    toast.success(`主题已切换为${THEME_LABEL[next]}`);
-  } catch (e) {
-    toast.error("保存失败", { description: String(e) });
-  }
+  // 主题由 store 的 watch 统一应用，保存成功后才生效，失败时界面与磁盘不会脱节
+  await commitConfig((d) => {
+    d.settings.theme = next;
+  }).catch(() => {});
 }
 
 /** 关闭窗口行为开关：开 = 最小化到托盘，关 = 退出程序 */
 async function setCloseToTray(tray: boolean) {
   const next: CloseAction = tray ? "tray" : "exit";
   if (next === store.config.settings.closeAction) return;
-  try {
-    await commitConfig((d) => {
-      d.settings.closeAction = next;
-    });
-    toast.success(`关闭窗口时：${CLOSE_LABEL[next]}`);
-  } catch (e) {
-    toast.error("保存失败", { description: String(e) });
-  }
+  await commitConfig((d) => {
+    d.settings.closeAction = next;
+  }).catch(() => {});
 }
 
 // 导入 / 导出共用：防止连点同时打开两个文件选择器
@@ -148,11 +123,9 @@ async function exportCfg() {
       defaultPath: "secaxis-config.json",
       filters: [{ name: "JSON", extensions: ["json"] }],
     });
-    if (!p) return;
-    await api.exportConfig(p);
-    toast.success("配置已导出");
-  } catch (e) {
-    toast.error("导出失败", { description: String(e) });
+    if (p) await api.exportConfig(p);
+  } catch {
+    // 失败不再弹提示
   } finally {
     cfgBusy.value = false;
   }
@@ -174,20 +147,12 @@ async function importCfg() {
       { title: "导入配置", confirmText: "导入并替换" },
     );
     if (!ok) return;
-    const { config: cfg, warnings } = await api.importConfig(p);
+    // 后端对引用做的收敛（warnings）不再提示：被清掉绑定的工具会在卡片上标红说明原因
+    const { config: cfg } = await api.importConfig(p);
     await replaceConfig(cfg);
     applyTheme();
-    if (warnings.length > 0) {
-      // 引用被收敛过就必须说出来：悬空的环境引用会让工具无法启动
-      toast.warning("配置已导入，但有引用被修正", {
-        description: warnings.join("\n"),
-        duration: 8000,
-      });
-    } else {
-      toast.success("配置已导入");
-    }
-  } catch (e) {
-    toast.error("导入失败", { description: String(e) });
+  } catch {
+    // 失败不再弹提示
   } finally {
     cfgBusy.value = false;
   }
@@ -322,8 +287,5 @@ async function importCfg() {
       <EnvDialog ref="envDialogRef" />
       <ConfirmDialog />
     </div>
-
-    <!-- offset 避开自定义标题栏，避免 toast 盖住搜索框 -->
-    <Toaster position="top-center" rich-colors :duration="4000" :offset="64" />
   </TooltipProvider>
 </template>

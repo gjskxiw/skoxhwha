@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from "vue";
-import { toast } from "vue-sonner";
 import { FolderOpen } from "@lucide/vue";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +27,8 @@ const open = ref(false);
 const isNew = ref(true);
 /** 保存中（gui_exe 会先提取图标），避免重复提交 */
 const saving = ref(false);
+/** 上一次保存被拒的原因，显示在弹窗底部 */
+const formError = ref("");
 
 const form = reactive<Tool>({
   id: "",
@@ -62,12 +63,14 @@ function openNew(groupId?: string | null) {
   Object.assign(form, emptyTool());
   form.groupId =
     groupId && groupId !== "all" && groupId !== "none" ? groupId : null;
+  formError.value = "";
   open.value = true;
 }
 
 function openEdit(tool: Tool) {
   isNew.value = false;
   Object.assign(form, JSON.parse(JSON.stringify(tool)));
+  formError.value = "";
   open.value = true;
 }
 
@@ -111,6 +114,11 @@ watch(
     }
   },
 );
+
+// 改过任何字段，上一次显示的被拒原因就过期了
+watch(form, () => {
+  formError.value = "";
+});
 
 const TARGET_FILTERS: Record<ToolType, { name: string; extensions: string[] }[]> = {
   terminal_python: [{ name: "Python 脚本", extensions: ["py"] }],
@@ -185,9 +193,10 @@ async function save() {
   if (saving.value || !open.value) return;
   const err = validate();
   if (err) {
-    toast.warning(err);
+    formError.value = err;
     return;
   }
+  formError.value = "";
   saving.value = true;
   try {
     const snapshot: Tool = JSON.parse(JSON.stringify(form));
@@ -223,14 +232,14 @@ async function save() {
         if (idx >= 0) draft.tools[idx] = snapshot;
       }
     });
-  } catch (e) {
-    toast.error("保存失败", { description: String(e) });
+  } catch {
+    // 写盘失败时弹窗保持打开，让用户改完再试，而不是静默丢掉这次编辑
+    formError.value = "保存失败，配置未写入";
     return;
   } finally {
     saving.value = false;
   }
   open.value = false;
-  toast.success(isNew.value ? "已添加工具" : "已更新工具");
 }
 </script>
 
@@ -318,6 +327,9 @@ async function save() {
       </div>
 
       <DialogFooter class="border-t px-6 py-3">
+        <p v-if="formError" role="alert" class="mr-auto self-center text-xs text-destructive">
+          {{ formError }}
+        </p>
         <Button variant="outline" @click="open = false">取消</Button>
         <Button :disabled="saving" @click="save">保存</Button>
       </DialogFooter>

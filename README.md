@@ -63,7 +63,6 @@ Java / Python 工具绑定确定的运行时版本。
 | 样式 | **Tailwind CSS 4** + `tw-animate-css` | 主题走 CSS 变量（oklch），深浅色一套组件通吃 |
 | 无头组件 | **reka-ui** + shadcn-vue（new-york / neutral） | `src/components/ui/` 为生成件，业务组件在其上组合 |
 | 图标 | **@lucide/vue**、**Devicon** | 类型图标与 Java / Python 官方 logo |
-| 通知 | **vue-sonner** | 应用内 toast，避开原生弹窗 |
 | 后端 | **Rust**（edition 2021） | `serde` / `serde_json` / `base64` / `image`(仅 png) |
 | Win32 | **windows-sys 0.60** | `Shell` / `WindowsAndMessaging` / `Gdi` / `Registry`，用于取图标与提权启动 |
 | 产物 | 单个 `secaxis.exe` | `lto = true`、`codegen-units = 1`、`opt-level = 3`、`panic = "abort"`、`strip = true` |
