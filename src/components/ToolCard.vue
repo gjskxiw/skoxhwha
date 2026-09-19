@@ -69,13 +69,27 @@ const envName = computed(() => {
   const env = store.config.envs.find((e) => e.id === props.tool.envId);
   return env?.name;
 });
+/**
+ * 分组归属。颜色留给侧栏，卡片只带文字，避免和类型徽章那套六色抢语义；
+ * 放在副行开头而不是徽章行，是因为 220px 的窄列放不下「类型 + 分组 + 环境」三枚徽章。
+ * 已经在看这个分组时不显示：一屏卡片重复同一个组名只是噪声，需要它的是「全部」和搜索结果。
+ */
+const groupName = computed(() => {
+  const id = props.tool.groupId;
+  if (!id || id === store.activeGroupId) return undefined;
+  return store.config.groups.find((g) => g.id === id)?.name;
+});
+/** 副行全文，同时用作悬停 title（截断时仍能看到完整分组名 + 描述/路径） */
+const subline = computed(() =>
+  [groupName.value, props.tool.description || props.tool.target].filter(Boolean).join(" · "),
+);
 </script>
 
 <template>
   <ContextMenu>
     <ContextMenuTrigger as-child>
       <div
-        class="flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-4 transition-[color,box-shadow] hover:border-ring hover:ring-1 hover:ring-ring/50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-hidden"
+        class="flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-4 transition-[border-color,box-shadow,translate] hover:-translate-y-px hover:border-foreground/25 hover:shadow-md focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-hidden"
         :class="status && !status.ok ? 'border-destructive/60' : ''"
         role="button"
         tabindex="0"
@@ -86,14 +100,16 @@ const envName = computed(() => {
         @keydown.space.prevent="emit('launch', tool)"
       >
         <div class="flex items-start gap-3">
-          <div class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted">
+          <div
+            class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted/60 inset-ring inset-ring-border"
+          >
             <img v-if="iconSrc" :src="iconSrc" class="size-6 object-contain" alt="" />
             <img v-else-if="typeLogo" :src="typeLogo" class="size-6 object-contain" alt="" />
             <component :is="typeIcon" v-else class="size-5 text-muted-foreground" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-1">
-              <span class="truncate text-sm font-medium">{{ tool.name }}</span>
+              <span class="truncate text-sm font-medium" :title="tool.name">{{ tool.name }}</span>
               <Tooltip v-if="status && !status.ok">
                 <TooltipTrigger as-child>
                   <TriangleAlert class="size-4 shrink-0 text-destructive" />
@@ -101,8 +117,8 @@ const envName = computed(() => {
                 <TooltipContent side="bottom">{{ status.missing }}</TooltipContent>
               </Tooltip>
             </div>
-            <div class="mt-0.5 truncate text-xs text-muted-foreground">
-              {{ tool.description || tool.target }}
+            <div class="mt-0.5 truncate text-xs text-muted-foreground" :title="subline">
+              <template v-if="groupName"><span class="text-secondary-foreground">{{ groupName }}</span> · </template>{{ tool.description || tool.target }}
             </div>
           </div>
         </div>
