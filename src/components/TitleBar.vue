@@ -36,16 +36,19 @@ onBeforeUnmount(() => {
   unlisten?.();
 });
 
+// 焦点环走 inset：这三个按钮贴着窗口边缘，外扩的 ring 会被窗口边界裁掉
 const ctrlBtn =
-  "grid w-12 place-items-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden";
+  "grid w-12 place-items-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:inset-ring-2 focus-visible:inset-ring-ring";
 const closeBtn =
-  "grid w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white focus-visible:outline-hidden";
+  "grid w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white focus-visible:outline-hidden focus-visible:inset-ring-2 focus-visible:inset-ring-ring";
 </script>
 
 <template>
   <!-- data-tauri-drag-region="deep"：整个标题栏可拖动，按钮/输入框等交互元素自动豁免；双击拖拽区切换最大化（Tauri 内置） -->
+  <!-- bg-sidebar 而不是 bg-card：浅色主题下 --card 与 --background 同为纯白，标题栏会和内容区糊成一片；
+       用 sidebar 后标题栏与侧栏在两套主题里都是同一层「外壳」，内容区自然沉下去 -->
   <header
-    class="flex h-12 shrink-0 select-none items-stretch border-b bg-card"
+    class="flex h-12 shrink-0 select-none items-stretch border-b bg-sidebar"
     data-tauri-drag-region="deep"
   >
     <slot />

@@ -6,6 +6,7 @@ import javaLogo from "devicon/icons/java/java-original.svg";
 import pythonLogo from "devicon/icons/python/python-original.svg";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { api } from "@/lib/api";
@@ -236,7 +237,11 @@ async function importCfg() {
           <Input v-model="store.search" placeholder="搜索工具…" class="h-8 pl-8" />
         </div>
 
-        <div class="ml-auto flex items-center gap-1.5 pl-2 pr-2">
+        <!-- 竖分隔线把三类控件断开：运行环境 / 工具栏操作 / 主操作。
+             原先 8 个控件按 gap-1.5 均分，唯一的主操作「新建工具」和「导出配置」权重一样。
+             pl-4 是给左侧搜索框留的呼吸位：最小宽度 860 下两者原本只剩 8px 间隙 -->
+        <div class="ml-auto flex items-center gap-1.5 pl-4 pr-2">
+          <div class="flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="icon"
@@ -255,15 +260,18 @@ async function importCfg() {
             >
               <img :src="pythonLogo" class="size-4" alt="" />
             </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            title="新建分组"
-            aria-label="新建分组"
-            @click="groupSidebarRef?.openNewGroup()"
-          >
-            <FolderPlus />
-          </Button>
+          </div>
+          <Separator orientation="vertical" class="h-5!" />
+          <div class="flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="新建分组"
+              aria-label="新建分组"
+              @click="groupSidebarRef?.openNewGroup()"
+            >
+              <FolderPlus />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -299,9 +307,11 @@ async function importCfg() {
               :aria-label="`关闭窗口时：${CLOSE_LABEL[store.config.settings.closeAction]}（开：最小化到托盘，关：退出程序）`"
               @update:model-value="setCloseToTray"
             />
-            <Button size="sm" @click="toolFormRef?.openNew(store.activeGroupId)">
-              新建工具
-            </Button>
+          </div>
+          <Separator orientation="vertical" class="h-5!" />
+          <Button size="sm" @click="toolFormRef?.openNew(store.activeGroupId)">
+            新建工具
+          </Button>
         </div>
       </TitleBar>
 
