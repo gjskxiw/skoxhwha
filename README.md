@@ -7,6 +7,7 @@
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white">
   <img alt="Tailwind CSS" src="https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%2010/11-0078D6?logo=windows&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/License-Proprietary-red">
   <a href="https://github.com/gjskxiw/skoxhwha/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/gjskxiw/skoxhwha?label=%E4%B8%8B%E8%BD%BD&color=blue"></a>
 </p>
 
@@ -38,6 +39,18 @@ Java / Python 工具绑定确定的运行时版本。
 | 主题 | 浅色 / 深色一键切换并持久化，切换瞬间禁用过渡以避免闪色 |
 | 配置便携 | 数据写在 exe 同目录 `data\`；该目录不可写时自动回退 `%APPDATA%\SecAxis\data`；支持导出 / 导入 JSON |
 | 无边框窗口 | 自绘标题栏、整条可拖拽、双击切换最大化；记住上次尺寸与最大化状态，启动一律屏幕居中 |
+
+## 界面
+
+卡片按工具类型着色，绑定过运行环境的会额外挂一枚环境徽章；依赖有问题时卡片描红并给出原因。
+
+浅色主题：
+
+![SecAxis 浅色主题](docs/screenshot-light.png)
+
+深色主题：
+
+![SecAxis 深色主题](docs/screenshot-dark.png)
 
 ## 技术栈
 
@@ -134,3 +147,9 @@ cargo test --lib     # 在 src-tauri/ 下运行后端单元测试
 - 终端类工具的启动参数不能含 `%`，双引号必须成对——表单会当场提示，已存的配置则会在卡片上标红说明
 - Java / Python 类工具不绑定环境就无法启动，这是有意为之
 - 若把 exe 移到只读目录，配置会自动落到 `%APPDATA%\SecAxis\data`，启动日志里会记下实际使用的数据目录
+
+## 许可
+
+本项目**仅供内部使用，不授予任何公开许可**：未经许可不得复制、修改、分发或出售，详见 [LICENSE](LICENSE)。
+
+上文界面截图中的工具、分组与运行环境均为演示数据，不对应任何真实目标。
